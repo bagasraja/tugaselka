@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IOT Dashboard - Sensor Lingkungan</title>
+
+<!-- Gauge -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-gauges@2"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body { font-family: Arial; background: #f3f6fd; margin:0; padding:20px; }
+.card {
+    margin: auto;
+    padding: 20px;
+    background: white;
+    border-radius: 15px;
+    width: 320px;
+    box-shadow: 0 0 15px #d7d7d7;
+    text-align: center;
+}
+.title { font-size: 20px; margin-bottom: 10px; font-weight: bold; }
+.wrapper {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+.chart-box {
+    width: 100%;
+    max-width: 900px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    margin-top: 30px;
+    box-shadow: 0 0 15px #dcdcdc;
+}
+</style>
+</head>
+<body>
+<h2 style="text-align:center;">Dashboard Sensor Lingkungan</h2>
+<p id="update-time" style="text-align:center;margin-top:-10px;color:gray;"></p>
+
+<div class="wrapper">
+    <div class="card">
+        <div class="title">Suhu (°C)</div>
+        <canvas id="gaugeTemp" width="300" height="300"></canvas>
+    </div>
+
+    <div class="card">
+        <div class="title">Kelembapan (%)</div>
+        <canvas id="gaugeHum" width="300" height="300"></canvas>
+    </div>
+
+    <div class="card">
+        <div class="title">Tekanan Udara (hPa)</div>
+        <canvas id="gaugePress" width="300" height="300"></canvas>
+    </div>
+</div>
+
+<div class="chart-box">
+    <h3 style="text-align:center;">Grafik Tren Suhu</h3>
+    <canvas id="tempChart"></canvas>
+</div>
+
+<script>
+// ====== GANTI SESUAI REPO ======
+const URL = "https://bagasraja.github.io/tugaselka/data/sensor.json";
+// =================================
+
+let tempHistory = [];
+let labels = [];
+
+// === Gauge Setup ===
+const gaugeTemp = new RadialGauge({
+    renderTo: 'gaugeTemp', width: 300, height: 300, units: "°C",
+    minValue: 0, maxValue: 60,
+    majorTicks: ["0","10","20","30","40","50","60"],
+    minorTicks: 5,
+    highlights: [{ from: 0, to: 35, color: "rgba(0,255,0,.3)" }, { from: 35, to: 60, color: "rgba(255,0,0,.3)" }],
+    needleType: "arrow", needleWidth: 3, animation: true
+}).draw();
+
+const gaugeHum = new RadialGauge({
+    renderTo: 'gaugeHum', width: 300, height: 300, units: "%",
+    minValue: 0, maxValue: 100,
+    majorTicks: ["0","20","40","60","80","100"],
+    highlights: [{ from: 0, to: 70, color: "rgba(0,150,255,.3)" }, { from: 70, to: 100, color: "rgba(255,0,0,.3)" }],
+    needleType: "arrow"
+}).draw();
+
+const gaugePress = new RadialGauge({
+    renderTo: 'gaugePress', width: 300, height: 300, units: "hPa",
+    minValue: 900, maxValue: 1100,
+    majorTicks: ["900","950","1000","1050","1100"],
+    highlights: [{ from: 900, to: 1020, color: "rgba(0,255,0,.3)" }, { from: 1020, to: 1100, color: "rgba(255,0,0,.3)" }],
+    needleType: "arrow"
+}).draw();
+
+// === Chart.js ===
+const ctx = document.getElementById("tempChart").getContext("2d");
+const tempChart = new Chart(ctx, {
+    type: "line",
+    data: {
+        labels: labels,
+        datasets: [{
+            label: "Suhu (°C)",
+            data: tempHistory,
+            fill: true,
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false
+    }
+});
+
+// === Update Function ===
+async function updateData() {
+    try {
+        const res = await fetch(URL + "?v=" + Date.now());
+        const data = await res.json();
+
+        document.getElementById("update-time").innerText = "Diperbarui: " + data.timestamp;
+
+        gaugeTemp.value = data.temperature;
+        gaugeHum.value = data.humidity;
+        gaugePress.value = data.pressure;
+
+        // Grafik
+        labels.push(data.timestamp.slice(11, 19));
+        tempHistory.push(data.temperature);
+
+        if (labels.length > 12) { labels.shift(); tempHistory.shift(); }
+
+        tempChart.update();
+    } catch (err) {
+        console.error("Gagal memuat data:", err);
+    }
+}
+
+setInterval(updateData, 10000);
+updateData();
+</script>
+</body>
+</html>
